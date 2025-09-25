@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LeetCode 1161 — Maximum Level Sum of a Binary Tree (Interactive)</title>
+<style>
+  :root { --bg:#fff; --fg:#111; --muted:#666; --accent1:#1f77b4; --accent2:#ff7f0e; --accent3:#2ca02c; --box:#222; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 20px; color: var(--fg); background: var(--bg); }
+  .container { max-width: 1280px; margin: 0 auto; }
+  h2 { margin-bottom: 6px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 12px 0; }
+  input[type="text"] { padding: 6px 8px; min-width: 360px; }
+  select, button, label { padding: 6px 10px; font-size: 14px; }
+  .status { margin-left: 6px; }
+  .layout { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; align-items: start; }
+  .panel { border: 1px solid #ddd; padding: 10px; border-radius: 10px; background:#fafafa; }
+  .panel h3 { margin: 8px 0; font-size: 16px; }
+  .treeCanvas { position: relative; }
+  .tree { padding: 10px; border-radius: 10px; }
+  .level { display:grid; gap: 12px; align-items:center; margin: 8px 0; }
+  .node { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--box); display:flex; align-items:center; justify-content:center; font-weight:600; background:#fff; margin:0 auto; position: relative; transition: transform .15s; }
+  .node.current { outline: 3px solid var(--accent3); transform: scale(1.04); background: #f6fff6; }
+  .node.enq { box-shadow: 0 0 0 3px var(--accent1) inset; }
+  .slot { min-height: 52px; }
+  .legend { font-size: 12px; color: #555; margin-top: 8px; }
+  .vars { display:grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .vrow { display:flex; justify-content: space-between; background:#fff; border:1px solid #ddd; border-radius:6px; padding:6px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .que { display:flex; gap:8px; flex-wrap:wrap; }
+  .qitem { border:1px solid #aaa; padding:4px 8px; border-radius:6px; background:#fff; }
+  .qidx { color: var(--muted); margin-left:4px; }
+  .sep { color: var(--muted); }
+  .codebox { background:#0c0f14; color:#cde3ff; border-radius: 10px; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; overflow-x: auto; }
+  .codeline { display: grid; grid-template-columns: 32px 18px auto; gap: 8px; align-items: start; padding: 2px 6px; border-radius: 6px; }
+  .codeline .ln { color:#7799bb; text-align: right; }
+  .codeline .ptr { width: 18px; text-align: center; color: #9cff57; }
+  .codeline .code-text { white-space: pre; }
+  .codeline.active { background: #122033; }
+  .codeline.hint { background: #0f1723; }
+  .svg-lines { position:absolute; left:0; top:0; pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>LeetCode 1161 — Maximum Level Sum of a Binary Tree (Interactive)</h2>
+  <div class="row">
+    <label><strong>Choose test case:</strong>
+      <select id="preset">
+        <option value="ex1">Example 1: [1,7,0,7,-8,null,null] → expected 2</option>
+        <option value="ex2">Example 2: [989,null,10250,98693,-89388,null,null,null,-32127] → expected 2</option>
+        <option value="custom">Custom</option>
+      </select>
+    </label>
+    <input id="arr" type="text" value="[1,7,0,7,-8,null,null]" />
+    <button id="load">Load</button>
+    <label><input type="checkbox" id="micro" checked> Micro-steps inside for-loop</label>
+    <span id="err" style="color:#b00;"></span>
+  </div>
+  <div class="controls">
+    <button id="first">&laquo; First</button>
+    <button id="prev">&lsaquo; Prev</button>
+    <span class="status" id="status">Step 0 / 0</span>
+    <button id="next">Next &rsaquo;</button>
+    <button id="last">Last &raquo;</button>
+    <button id="play">Play</button>
+    <label style="margin-left:10px;">Speed <input id="speed" type="range" min="150" max="1500" step="50" value="600"></label>
+  </div>
+  <div class="layout">
+    <div>
+      <div class="panel">
+        <h3>Tree (complete-binary layout by index)</h3>
+        <div class="treeCanvas" id="treeCanvas">
+          <div id="tree" class="tree"></div>
+          <svg id="lines" class="svg-lines"></svg>
+        </div>
+        <div class="legend">Root at 0, left = 2i+1, right = 2i+2. Empty slots keep spacing like the LeetCode images.</div>
+      </div>
+      <div class="panel">
+        <h3>State</h3>
+        <div class="vars">
+          <div class="vrow"><span>level</span><span id="v_level">-</span></div>
+          <div class="vrow"><span>size</span><span id="v_size">-</span></div>
+          <div class="vrow"><span>sum</span><span id="v_sum">-</span></div>
+          <div class="vrow"><span>maxsum</span><span id="v_maxsum">-</span></div>
+          <div class="vrow"><span>maxsumlevel</span><span id="v_maxlevel">-</span></div>
+          <div class="vrow"><span>current val</span><span id="v_val">-</span></div>
+          <div class="vrow"><span>phase</span><span id="v_phase">-</span></div>
+          <div class="vrow"><span>substep</span><span id="v_sub">-</span></div>
+        </div>
+        <div style="margin-top:8px;">
+          <div><span class="em">Queue</span> (value):</div>
+          <div class="que" id="queue"></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h3>Code (gdb-style pointer)</h3>
+        <div id="code" class="codebox"></div>
+      </div>
+      <div class="panel">
+        <h3>Notes</h3>
+        <div id="note" class="vrow" style="display:block;">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Given C++ (reference)</h3>
+<pre class="codebox" style="white-space:pre; overflow:auto;"><code>class Solution {
+public:
+    int maxLevelSum(TreeNode* root) {
+        if (!root) return 0;
+        //Use the BFS that uses the queue data structure to traverse the
+        //binary tree level by level
+        //In queue, store TreeNode* while processing level by level
+        //we add the sum, when it moves to next level, store this in max by comparing, also 
+        //keep track of level along with max sum. at the end return level.
+        queue&lt;TreeNode*&gt; q;
+        int maxsum=std::numeric_limits&lt;int&gt;::min();
+        int maxsumlevel=0;
+        int level=0;
+        q.push(root);
+        while(!q.empty()){
+            level++;
+            int size=q.size();
+            int sum=0;
+            for(int i=0;i&lt;size;i++){
+                auto temp = q.front();q.pop();
+                sum+=temp-&gt;val;
+                if(temp-&gt;left) q.push(temp-&gt;left);
+                if(temp-&gt;right) q.push(temp-&gt;right);
+            }
+            if(maxsum&lt;sum) {
+                maxsum=sum;
+                maxsumlevel=level;
+            }
+        }
+        return maxsumlevel;
+    }
+};</code></pre>
+  </div>
+</div>
+<script>
+const PRESETS={ex1:"[1,7,0,7,-8,null,null]",ex2:"[989,null,10250,98693,-89388,null,null,null,-32127]"};
+const CODE_LINES=[
+  "if (!root) return 0;",
+  "queue<TreeNode*> q;",
+  "int maxsum = numeric_limits<int>::min();",
+  "int maxsumlevel = 0;",
+  "int level = 0;",
+  "q.push(root);",
+  "while (!q.empty()) {",
+  "    level++;",
+  "    int size = q.size();",
+  "    int sum = 0;",
+  "    for (int i = 0; i < size; i++) {",
+  "        auto temp = q.front(); q.pop();",
+  "        sum += temp->val;",
+  "        if (temp->left)  q.push(temp->left);",
+  "        if (temp->right) q.push(temp->right);",
+  "    }",
+  "    if (maxsum < sum) {",
+  "        maxsum = sum;",
+  "        maxsumlevel = level;",
+  "    }",
+  "}",
+  "return maxsumlevel;"
+];
+function parseArray(text){try{let t=text.trim();if(!t.startsWith("["))t="["+t+"]";const arr=JSON.parse(t.replace(/null/g,"null"));if(!Array.isArray(arr))return null;return arr;}catch{return null;}}
+function buildIndexMap(arr){const m=new Map();arr.forEach((v,i)=>{if(v!==null&&v!==undefined)m.set(i,v);});return m;}
+function buildSteps(arr,micro){const idxMap=buildIndexMap(arr);if(!idxMap.has(0)){return[{note:"Empty tree",tree:idxMap,queue:[],level:0,size:0,sum:0,maxsum:null,maxsumlevel:0,phase:"done",done:true}];}
+ const q=[{idx:0,val:idxMap.get(0)}];const steps=[];let level=0;let maxsum=-Infinity;let maxsumlevel=0;
+ while(q.length){level++;const size=q.length;let sum=0;steps.push({note:`Start level ${level}: size=${size}`,tree:new Map(idxMap),queue:q.slice().map(x=>x.val),level,size,sum,maxsum,maxsumlevel,phase:"level-start",sub:null,highlight:null,enq:[],done:false});
+ for(let i=0;i<size;i++){const {idx,val}=q.shift();
+  if(micro){steps.push({note:`Dequeue val=${val}`,tree:new Map(idxMap),queue:q.slice().map(x=>x.val),level,size,sum,maxsum,maxsumlevel,phase:"process",sub:"deq",highlight:idx,enq:[],curVal:val});}
+  sum+=val;
+  if(micro){steps.push({note:`sum += ${val} → ${sum}`,tree:new Map(idxMap),queue:q.slice().map(x=>x.val),level,size,sum,maxsum,maxsumlevel,phase:"process",sub:"add",highlight:idx,enq:[],curVal:val});}
+  const li=2*idx+1,ri=2*idx+2;let enqL=false,enqR=false;
+  if(idxMap.has(li)){q.push({idx:li,val:idxMap.get(li)});enqL=true;}
+  if(micro){steps.push({note:enqL?`Enqueue left val=${idxMap.get(li)}`:"No left child",tree:new Map(idxMap),queue:q.slice().map(x=>x.val),level,size,sum,maxsum,maxsumlevel,phase:"process",sub:"enqL",highlight:idx,enq:enqL?[li]:[],curVal:val});}
+  if(idxMap.has(ri)){q.push({idx:ri,val:idxMap.get(ri)});enqR=true;}
+  if(micro){steps.push({note:enqR?`Enqueue right val=${idxMap.get(ri)}`:"No right child",tree:new Map(idxMap),queue:q.slice().map(x=>x.val),level,size,sum,maxsum,maxsumlevel,phase:"process",sub:"enqR",highlight:idx,enq:enqR?[ri]:[],curVal:val});}
+  if(!micro){const enq=[];if(enqL)enq.push(li);if(enqR)enq.push(ri);steps.push({note:`Process val=${val}`+(enq.length?`; enqueue ${enq.map(i=>idxMap.get(i)).join(", ")}`:"; no children"),tree:new Map(idxMap),queue:q.slice().map(x=>x.val),level,size,sum,maxsum,maxsumlevel,phase:"process",sub:null,highlight:idx,enq,curVal:val});}
+ }
+ if(maxsum<sum){maxsum=sum;maxsumlevel=level;}
+ steps.push({note:`End level ${level} → sum=${sum}; maxsum=${maxsum}; maxsumlevel=${maxsumlevel}`,tree:new Map(idxMap),queue:q.slice().map(x=>x.val),level,size,sum,maxsum,maxsumlevel,phase:"level-end",sub:null,highlight:null,enq:[],done:false});
+ }
+ steps.push({note:`Done. Answer = level ${maxsumlevel}`,tree:new Map(buildIndexMap(arr)),queue:[],level,size:0,sum:0,maxsum,maxsumlevel,phase:"done",sub:null,highlight:null,enq:[],done:true});
+ return steps;}
+const presetSel=document.getElementById('preset');const arrInput=document.getElementById('arr');const microChk=document.getElementById('micro');const loadBtn=document.getElementById('load');const statusEl=document.getElementById('status');
+const treeEl=document.getElementById('tree');const linesSvg=document.getElementById('lines');const queueEl=document.getElementById('queue');
+const vLevel=document.getElementById('v_level');const vSize=document.getElementById('v_size');const vSum=document.getElementById('v_sum');const vMaxsum=document.getElementById('v_maxsum');const vMaxlevel=document.getElementById('v_maxlevel');const vVal=document.getElementById('v_val');const vPhase=document.getElementById('v_phase');const vSub=document.getElementById('v_sub');
+const noteEl=document.getElementById('note');const codeEl=document.getElementById('code');
+function buildCode(){codeEl.innerHTML="";CODE_LINES.forEach((txt,i)=>{const d=document.createElement('div');d.className='codeline';d.dataset.ln=(i+1);d.innerHTML=`<div class="ln">${i+1}</div><div class="ptr"> </div><div class="code-text">${txt}</div>`;codeEl.appendChild(d);});}
+buildCode();
+function setPointer(line,hints=[]){const lines=codeEl.querySelectorAll('.codeline');lines.forEach(l=>{l.classList.remove('active','hint');l.querySelector('.ptr').textContent=' ';});if(line!=null){const el=codeEl.querySelector(`.codeline[data-ln="${line}"]`);if(el){el.classList.add('active');el.querySelector('.ptr').textContent='›';}}hints.forEach(h=>{const el=codeEl.querySelector(`.codeline[data-ln="${h}"]`);if(el)el.classList.add('hint');});}
+function pointerForStep(s,micro){if(s.done)return{line:22,hints:[]};if(s.phase==='level-start')return{line:8,hints:[7,9,10]};if(s.phase==='process'){if(micro){if(s.sub==='deq')return{line:12,hints:[11]};if(s.sub==='add')return{line:13,hints:[11]};if(s.sub==='enqL')return{line:14,hints:[11]};if(s.sub==='enqR')return{line:15,hints:[11]};return{line:11,hints:[]};}else{return{line:11,hints:[12,13,14,15]};}}if(s.phase==='level-end')return{line:17,hints:[18,19]};return{line:null,hints:[]};}
+function renderTreeAndLines(step){const tree=step.tree;treeEl.innerHTML="";let maxIdx=-1;tree.forEach((_,k)=>{if(k>maxIdx)maxIdx=k;});if(maxIdx<0){treeEl.textContent="∅";linesSvg.innerHTML="";return;}const maxLevel=Math.floor(Math.log2(maxIdx+1));for(let lvl=0;lvl<=maxLevel;lvl++){const cols=Math.pow(2,lvl);const row=document.createElement('div');row.className='level';row.style.gridTemplateColumns=`repeat(${cols}, 1fr)`;for(let c=0;c<cols;c++){const idx=(1<<lvl)-1+c;const cell=document.createElement('div');cell.className='slot';if(tree.has(idx)){const node=document.createElement('div');node.className='node';node.textContent=tree.get(idx);node.dataset.idx=idx;if(step.highlight===idx)node.classList.add('current');if(step.enq&&step.enq.includes(idx))node.classList.add('enq');cell.appendChild(node);}row.appendChild(cell);}treeEl.appendChild(row);}const rect=treeEl.getBoundingClientRect();const w=Math.ceil(rect.width);const h=Math.ceil(rect.height);linesSvg.setAttribute('width',w);linesSvg.setAttribute('height',h);linesSvg.setAttribute('viewBox',`0 0 ${w} ${h}`);linesSvg.style.width=w+'px';linesSvg.style.height=h+'px';linesSvg.innerHTML="";const nodes=Array.from(treeEl.querySelectorAll('.node'));const pos=new Map();const treeRect=treeEl.getBoundingClientRect();nodes.forEach(n=>{const r=n.getBoundingClientRect();const cx=r.left-treeRect.left+r.width/2;const cy=r.top-treeRect.top+r.height/2;pos.set(parseInt(n.dataset.idx,10),{cx,cy});});const NS="http://www.w3.org/2000/svg";function line(x1,y1,x2,y2){const l=document.createElementNS(NS,'line');l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);l.setAttribute('stroke','#999');l.setAttribute('stroke-width','2');linesSvg.appendChild(l);}pos.forEach(({cx,cy},i)=>{const li=2*i+1,ri=2*i+2;if(pos.has(li)){const p=pos.get(li);line(cx,cy+20,p.cx,p.cy-20);}if(pos.has(ri)){const p=pos.get(ri);line(cx,cy+20,p.cx,p.cy-20);}});}
+function renderQueue(q){queueEl.innerHTML="";if(!q.length){queueEl.textContent="∅";return;}q.forEach((val,k)=>{const el=document.createElement('div');el.className='qitem';el.innerHTML=`<strong>${val}</strong>`;queueEl.appendChild(el);if(k<q.length-1){const dot=document.createElement('span');dot.className='sep';dot.textContent="→";queueEl.appendChild(dot);}});}
+let steps=[];let cur=0;let timer=null;
+function render(i){const s=steps[i];statusEl.textContent=s.done?"Done":`Step ${i+1} / ${steps.length}`;renderTreeAndLines(s);renderQueue(s.queue);
+document.getElementById('v_level').textContent=(s.level??"—");document.getElementById('v_size').textContent=(s.size??"—");document.getElementById('v_sum').textContent=(s.sum??"—");document.getElementById('v_maxsum').textContent=(s.maxsum??"—");document.getElementById('v_maxlevel').textContent=(s.maxsumlevel??"—");document.getElementById('v_val').textContent=(s.curVal??"—");document.getElementById('v_phase').textContent=(s.phase??"—");document.getElementById('v_sub').textContent=(s.sub??"—");noteEl.textContent=s.note||"—";const p=pointerForStep(s,document.getElementById('micro').checked);setPointer(p.line,p.hints);}
+function goto(i){cur=Math.max(0,Math.min(steps.length-1,i));render(cur);}
+function stopTimer(){if(timer){clearInterval(timer);timer=null;document.getElementById('play').textContent='Play';}}
+function startTimer(){stopTimer();document.getElementById('play').textContent='Pause';const spd=parseInt(document.getElementById('speed').value,10);timer=setInterval(()=>{if(cur>=steps.length-1){stopTimer();return;}goto(cur+1);},spd);}
+document.getElementById('first').onclick=()=>{stopTimer();goto(0);};
+document.getElementById('prev').onclick =()=>{stopTimer();goto(cur-1);};
+document.getElementById('next').onclick =()=>{stopTimer();goto(cur+1);};
+document.getElementById('last').onclick =()=>{stopTimer();goto(steps.length-1);};
+document.getElementById('play').onclick =()=>{if(timer)stopTimer();else{if(cur>=steps.length-1)goto(0);startTimer();}};
+document.getElementById('speed').oninput =()=>{if(timer)startTimer();};
+presetSel.onchange=()=>{const p=presetSel.value;if(p!=='custom')arrInput.value=PRESETS[p];};
+function runBuild(){const arr=parseArray(arrInput.value);const err=document.getElementById('err');if(!arr){err.textContent="Invalid array. Use JSON-like: [1,7,0,7,-8,null,null]";return false;}err.textContent="";steps=buildSteps(arr,document.getElementById('micro').checked);goto(0);return true;}
+document.getElementById('load').onclick=()=>{stopTimer();runBuild();};
+document.getElementById('micro').onchange=()=>{stopTimer();runBuild();};
+runBuild();window.addEventListener('resize',()=>render(cur));
+</script>
+</body>
+</html>
